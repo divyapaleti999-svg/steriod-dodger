@@ -44,10 +44,13 @@ export function generate(seed,difficulty='medium',horizon=DURATION){
  if(!config.survival)for(let i=0;i<4;i++)add('energy',DURATION-.50+i*.12,1-gates.at(-1).lane);
  objects.sort((a,b)=>a.spawn-b.spawn||a.time-b.time);gates.sort((a,b)=>a.time-b.time);return {objects,gates};
 }
+export const LEVEL_COUNT=1000;
+export function levelProfile(level){if(!Number.isInteger(level)||level<1||level>LEVEL_COUNT)throw new RangeError('Level must be 1–1000');const p=(level-1)/999;return {level,speed:1.15+3.35*p,interval:1.5-1.08*p,duration:15+30*p,maxShields:3}}
+export function generateLevel(level){const p=levelProfile(level),rng=random(192837+level),objects=[],gates=[];let lane=1,id=0;for(let t=2;t<p.duration-.35;t+=p.interval){if(rng()<.75)lane=1-lane;const o={id:id++,type:'hazard',time:t,lane,angle:t*p.speed,spawn:Math.max(0,t-Math.min(1.3,5.5/p.speed)),done:false,hit:false,minClearance:Infinity};objects.push(o);gates.push(o);objects.push({id:id++,type:'energy',time:t+.15,lane:1-lane,angle:(t+.15)*p.speed,spawn:o.spawn,done:false,hit:false,minClearance:Infinity})}objects.sort((a,b)=>a.spawn-b.spawn||a.time-b.time);return {objects,gates}}
 export class Engine{
- constructor({seed=(Math.random()*4294967296)>>>0,objectives=OBJECTIVE_SETS[0],difficulty='medium'}={}){
+ constructor({seed=(Math.random()*4294967296)>>>0,objectives=OBJECTIVE_SETS[0],difficulty='medium',level=null}={}){
   this.difficulty=difficultyKey(difficulty);this.config=DIFFICULTIES[this.difficulty];this.maxShields=this.config.maxShields;this.survival=!!this.config.survival;this.duration=this.survival?Infinity:DURATION;this.scheduleHorizon=DURATION;
-  this.seed=seed;this.time=0;this.travel=0;this.lane=1;this.fromRadius=206;this.radius=206;this.flipStarted=-1;this.lastFlip=-100;this.score=0;this.streak=0;this.multiplier=1;this.maxMultiplier=1;this.energy=0;this.gold=0;this.nearMisses=0;this.damage=0;this.shields=this.maxShields;this.invulnerableUntil=0;this.lastReward=0;this.lastDecay=0;this.slowRemaining=0;this.completed=0;this.clean=0;this.ended=false;this.cause='';this.events=[];this.active=[];this.spawnIndex=0;this.objectives=objectives.map(x=>({...x,done:false}));this.schedule=generate(seed,this.difficulty);this.currentPhase=phaseAt(0,this.difficulty);
+  this.seed=seed;this.time=0;this.travel=0;this.lane=1;this.fromRadius=206;this.radius=206;this.flipStarted=-1;this.lastFlip=-100;this.score=0;this.streak=0;this.multiplier=1;this.maxMultiplier=1;this.energy=0;this.gold=0;this.nearMisses=0;this.damage=0;this.shields=this.maxShields;this.invulnerableUntil=0;this.lastReward=0;this.lastDecay=0;this.slowRemaining=0;this.completed=0;this.clean=0;this.ended=false;this.cause='';this.events=[];this.active=[];this.spawnIndex=0;this.objectives=objectives.map(x=>({...x,done:false}));this.schedule=generate(seed,this.difficulty);this.currentPhase=phaseAt(0,this.difficulty);if(level!==null){this.level=level;this.levelProfile=levelProfile(level);this.config={label:"Level "+level,maxShields:3};this.maxShields=this.shields=3;this.survival=false;this.duration=this.levelProfile.duration;this.schedule=generateLevel(level);this.objectives=[{key:"time",goal:this.duration,label:"Clear level "+level,done:false}];this.currentPhase="LEVEL "+level}
  }
  emit(type,extra={}){this.events.push({type,time:this.time,...extra})}
  flip(){if(this.ended||this.time-this.lastFlip<.09)return false;this.fromRadius=this.radius;this.lane=1-this.lane;this.flipStarted=this.time;this.lastFlip=this.time;this.emit('flip');return true}
@@ -56,10 +59,10 @@ export class Engine{
  checkObjectives(){for(const o of this.objectives){if(!o.done&&(this[o.key]??0)>=o.goal){o.done=true;this.score+=500;this.emit('objective',{label:o.label,amount:500})}}}
  update(realDt){
   if(this.ended)return;
-  const dt=Math.max(0,realDt);this.slowRemaining=Math.max(0,this.slowRemaining-dt);this.time=Math.min(this.duration,this.time+dt);this.travel=travelAt(this.time,this.difficulty);
+  const dt=Math.max(0,realDt);this.slowRemaining=Math.max(0,this.slowRemaining-dt);this.time=Math.min(this.duration,this.time+dt);this.travel=this.level?this.time*this.levelProfile.speed:travelAt(this.time,this.difficulty);
   while(this.survival&&this.time>=this.scheduleHorizon-5){const nextId=this.schedule.objects.reduce((id,o)=>Math.max(id,o.id+1),0);this.scheduleHorizon+=DURATION;const next=generate(this.seed,this.difficulty,this.scheduleHorizon);this.schedule.objects.push(...next.objects.filter(o=>o.id>=nextId));this.schedule.objects.sort((a,b)=>a.spawn-b.spawn||a.time-b.time);this.schedule.gates.push(...next.gates.filter(o=>o.id>=nextId))}
   if(this.flipStarted>=0){const p=Math.min(1,(this.time-this.flipStarted)/.105);const ease=p*p*(3-2*p);this.radius=this.fromRadius+(RADII[this.lane]-this.fromRadius)*ease;if(p===1)this.flipStarted=-1}
-  const phase=phaseAt(this.time,this.difficulty);if(phase!==this.currentPhase){this.currentPhase=phase;this.emit('phase',{phase})}
+  const phase=this.level?"LEVEL "+this.level:phaseAt(this.time,this.difficulty);if(phase!==this.currentPhase){this.currentPhase=phase;this.emit('phase',{phase})}
   while(this.spawnIndex<this.schedule.objects.length&&this.schedule.objects[this.spawnIndex].spawn<=this.time)this.active.push(this.schedule.objects[this.spawnIndex++]);
   for(const o of this.active){
    if(o.done)continue;const delta=o.angle-this.travel;const r=o.wall?(RADII[0]+RADII[1])/2:RADII[o.lane];

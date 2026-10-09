@@ -1,5 +1,5 @@
-# Steriod Dodger
+# Steriod Dodger V6
 
-Static game for GitHub Pages. Publish the main branch from the repository root.
+Play: https://divyapaleti999-svg.github.io/steriod-dodger/
 
-Includes five arcade modes, 5/15/25-round tournaments, tournament-earned Steroids, cosmetic Store, sixty new visual options and the last fifty match records. All progression is stored locally on each player's device.
+V6 adds exactly 1000 progressively faster, denser and longer levels, saved sequential progression and THE BREAKER title for completing all levels. Tournament currency and cosmetic saves are preserved.
