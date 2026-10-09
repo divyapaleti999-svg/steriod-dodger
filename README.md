@@ -1,5 +1,5 @@
 # Steriod Dodger
 
-Five arcade modes, tournaments, tournament-earned Steroids and a cosmetic Store with sixty new visual options. Static game for GitHub Pages.
+Static game for GitHub Pages. Publish the main branch from the repository root.
 
-Game files are being published to the main branch.
+Includes five arcade modes, 5/15/25-round tournaments, tournament-earned Steroids, cosmetic Store, sixty new visual options and the last fifty match records. All progression is stored locally on each player's device.
